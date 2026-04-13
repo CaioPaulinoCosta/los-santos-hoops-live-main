@@ -47,7 +47,7 @@ const RoundHistory = () => {
                                 </Button>
                             </Link>
 
-                            <div className="flex items-center gap-3">
+                            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                                 <img src={logo} alt="Logo" className="w-12 h-12 md:w-14 md:h-14" />
                                 <div className="text-center">
                                     <h1 className="text-lg md:text-xl font-bold text-foreground">
@@ -57,7 +57,7 @@ const RoundHistory = () => {
                                         Temporada 2024-2025
                                     </p>
                                 </div>
-                            </div>
+                            </Link>
 
                             <div className="w-[100px]" />
                         </div>

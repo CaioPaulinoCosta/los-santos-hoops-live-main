@@ -161,13 +161,13 @@ const Playoffs = () => {
                                     </Button>
                                 </Link>
 
-                                <div className="flex items-center gap-3">
+                                <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                                     <img src={logo} alt="Logo" className="w-12 h-12" />
                                     <div className="text-center">
                                         <h1 className="text-xl font-bold text-foreground">Playoffs</h1>
                                         <p className="text-sm text-muted-foreground">Los Santos Hoops</p>
                                     </div>
-                                </div>
+                                </Link>
 
                                 <div className="w-[100px]" />
                             </div>
@@ -221,13 +221,13 @@ const Playoffs = () => {
                                 </Button>
                             </Link>
 
-                            <div className="flex items-center gap-3">
+                            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
                                 <img src={logo} alt="Logo" className="w-12 h-12" />
                                 <div className="text-center">
                                     <h1 className="text-xl font-bold text-foreground">Playoffs</h1>
                                     <p className="text-sm text-muted-foreground">Temporada 2024-2025</p>
                                 </div>
-                            </div>
+                            </Link>
 
                             <Badge variant="default" className="bg-primary">
                                 {getRoundName(currentRound)}

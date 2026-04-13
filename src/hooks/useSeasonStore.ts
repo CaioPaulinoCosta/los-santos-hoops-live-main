@@ -44,9 +44,6 @@ export interface SeasonState {
     playoffTeams: Team[];
     champion: Team | null;
     runnerUp: Team | null;
-
-    // Admin/Test mode
-    isTestMode: boolean;
 }
 
 interface SeasonStore extends SeasonState {
@@ -60,7 +57,6 @@ interface SeasonStore extends SeasonState {
     checkAndGenerateResults: () => void;
     startPlayoffs: () => void;
     resetSeason: () => void;
-    toggleTestMode: () => void;
 }
 
 const initialState: SeasonState = {
@@ -71,8 +67,7 @@ const initialState: SeasonState = {
     rounds: [],
     playoffTeams: [],
     champion: null,
-    runnerUp: null,
-    isTestMode: false
+    runnerUp: null
 };
 
 export const useSeasonStore = create<SeasonStore>()(
@@ -465,10 +460,6 @@ export const useSeasonStore = create<SeasonStore>()(
                 useStandingsStore.getState().resetSeason();
                 set(initialState);
             },
-
-            toggleTestMode: () => {
-                set((state) => ({ isTestMode: !state.isTestMode }));
-            }
         }),
         {
             name: 'season-storage',

@@ -2,10 +2,9 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { GameCard } from "@/components/GameCard";
 import { NoGamesView } from "@/components/NoGamesView";
-import { AdminPanel } from "@/components/AdminPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Clock, Trophy, RotateCcw, Newspaper, Calendar } from "lucide-react";
+import { Clock, Trophy, Newspaper, Calendar } from "lucide-react";
 import arenaBackground from "@/assets/basketball-arena-bg.jpg";
 import logo from "@/assets/los-santos-logo.png";
 import { useSeasonStore } from "@/hooks/useSeasonStore";
@@ -13,7 +12,6 @@ import { scheduleManager } from "@/lib/scheduleManager";
 
 const Index = () => {
   const [currentTime, setCurrentTime] = useState("");
-  const [showAdminPanel, setShowAdminPanel] = useState(false);
   const [finishedGames, setFinishedGames] = useState<Set<string>>(new Set());
 
   const {
@@ -27,6 +25,7 @@ const Index = () => {
     advanceRound,
     seasonStartDate
   } = useSeasonStore();
+
 
   // Initialize season if needed
   useEffect(() => {
@@ -74,17 +73,7 @@ const Index = () => {
     return () => clearInterval(checkInterval);
   }, [checkAndGenerateResults]);
 
-  // Admin panel keyboard shortcut (ESC to close)
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setShowAdminPanel(false);
-      }
-    };
 
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, []);
 
   const isLiveTime = scheduleManager.isLiveTime();
   const currentRoundData = rounds.find(r => r.number === currentRound);
@@ -175,22 +164,8 @@ const Index = () => {
               </Button>
             </Link>
 
-            {/* Reset Button Hidden for Public Release */}
-            {/* Hidden Reset Button for Admin/Debug */}
-          </div>
-          <div className="mt-20 py-8 border-t border-border/10">
-            <button 
-              onClick={() => { if(confirm("Resetar TODA a temporada e notícias?")) nuclearReset(); }}
-              className="px-4 py-2 text-[10px] text-muted-foreground/20 hover:text-destructive transition-colors uppercase tracking-widest font-bold"
-            >
-              Reset Season (Debug)
-            </button>
-          </div>
+            </div>
         </div>
-
-        {/* Admin Panel Components - Critical for Reset */}
-        {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
-        {/* Admin Panel Button Hidden for Public Release */}
       </div>
     );
   }
@@ -217,7 +192,7 @@ const Index = () => {
           <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
             <div className="container mx-auto px-4 py-6">
               <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-4 text-center md:text-left">
+                <Link to="/" className="flex items-center gap-4 text-center md:text-left hover:opacity-80 transition-opacity">
                   <img
                     src={logo}
                     alt="City of Los Santos Logo"
@@ -229,7 +204,7 @@ const Index = () => {
                     </h1>
                     <p className="text-lg text-primary font-bold tracking-widest uppercase">Adult Basketball League</p>
                   </div>
-                </div>
+                </Link>
 
                 <div className="flex items-center gap-4">
                   <Link to="/news">
@@ -302,8 +277,6 @@ const Index = () => {
             </div>
           </main>
         </div>
-
-        {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
       </div>
     );
   }
@@ -324,7 +297,7 @@ const Index = () => {
         <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
+              <Link to="/" className="flex items-center gap-4 hover:opacity-80 transition-opacity">
                 <img src={logo} alt="Logo" className="w-16 h-16 md:w-20 md:h-20" />
                 <div>
                   <h1 className="text-3xl md:text-4xl font-bold text-foreground">
@@ -332,7 +305,7 @@ const Index = () => {
                   </h1>
                   <p className="text-lg text-primary font-semibold">Adult Basketball League</p>
                 </div>
-              </div>
+              </Link>
 
               <div className="flex items-center gap-4">
                 <Link to="/news">
@@ -367,10 +340,6 @@ const Index = () => {
         </main>
       </div>
 
-      {showAdminPanel && <AdminPanel onClose={() => setShowAdminPanel(false)} />}
-
-      {/* Floating Admin Button */}
-      {/* Admin Panel Button Hidden for Public Release */}
     </div>
   );
 };
