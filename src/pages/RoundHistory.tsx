@@ -1,11 +1,10 @@
 import { Link } from "react-router-dom";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, CheckCircle2, Clock } from "lucide-react";
-import logo from "@/assets/los-santos-logo.png";
+import { Calendar, CheckCircle2, Clock } from "lucide-react";
 import arenaBackground from "@/assets/basketball-arena-bg.jpg";
 import { useSeasonStore } from "@/hooks/useSeasonStore";
+import { SiteHeader } from "@/components/SiteHeader";
 
 const RoundHistory = () => {
     const { rounds, currentRound, phase } = useSeasonStore();
@@ -37,32 +36,7 @@ const RoundHistory = () => {
             />
 
             <div className="relative z-10">
-                <header className="border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-20">
-                    <div className="container mx-auto px-4 py-4">
-                        <div className="flex items-center justify-between">
-                            <Link to="/">
-                                <Button variant="ghost" size="sm" className="gap-2">
-                                    <ArrowLeft className="w-4 h-4" />
-                                    Voltar
-                                </Button>
-                            </Link>
-
-                            <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                                <img src={logo} alt="Logo" className="w-12 h-12 md:w-14 md:h-14" />
-                                <div className="text-center">
-                                    <h1 className="text-lg md:text-xl font-bold text-foreground">
-                                        Histórico de Rodadas
-                                    </h1>
-                                    <p className="text-xs md:text-sm text-muted-foreground">
-                                        Temporada 2024-2025
-                                    </p>
-                                </div>
-                            </Link>
-
-                            <div className="w-[100px]" />
-                        </div>
-                    </div>
-                </header>
+                <SiteHeader showBackButton />
 
                 <main className="container mx-auto px-4 py-8">
                     <div className="max-w-4xl mx-auto space-y-6">

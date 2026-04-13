@@ -1,11 +1,10 @@
 import { Link } from "react-router-dom";
 import { teams } from "@/data/teams";
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ArrowLeft, Trophy, RotateCcw, Calendar } from "lucide-react";
-import logo from "@/assets/los-santos-logo.png";
+import { Trophy } from "lucide-react";
 import arenaBackground from "@/assets/basketball-arena-bg.jpg";
 import { useStandingsStore } from "@/hooks/useStandingsStore";
+import { SiteHeader } from "@/components/SiteHeader";
 
 interface TeamStanding {
   team: typeof teams[0];
@@ -90,40 +89,7 @@ const Standings = () => {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Header */}
-        <header className="border-b border-border bg-card/95 backdrop-blur-sm sticky top-0 z-20">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <Link to="/">
-                  <Button variant="ghost" size="sm" className="gap-2">
-                    <ArrowLeft className="w-4 h-4" />
-                    Voltar aos Jogos
-                  </Button>
-                </Link>
-                <Link to="/history">
-                  <Button variant="outline" size="sm" className="gap-2">
-                    <Calendar className="w-4 h-4" />
-                    Histórico
-                  </Button>
-                </Link>
-                {/* Reset Button Hidden for Public Release */}
-              </div>
-
-              <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
-                <img src={logo} alt="Logo" className="w-12 h-12 md:w-14 md:h-14" />
-                <div className="text-center">
-                  <h1 className="text-lg md:text-xl font-bold text-foreground">
-                    City of Los Santos
-                  </h1>
-                  <p className="text-xs md:text-sm text-muted-foreground">Adult Basketball League</p>
-                </div>
-              </Link>
-
-              <div className="w-[100px]" /> {/* Spacer for centering */}
-            </div>
-          </div>
-        </header>
+        <SiteHeader showBackButton />
 
         {/* Main Content */}
         <main className="container mx-auto px-4 py-8">
