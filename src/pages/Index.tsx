@@ -28,9 +28,9 @@ const Index = () => {
 
   // Initialize season if needed
   useEffect(() => {
-    const desiredStart = new Date("2026-05-06T12:00:00");
+    const desiredStart = new Date("2026-04-29T12:00:00");
     
-    // Hard Reset: If stored season doesn't match our May 6th start date, reset it.
+    // Hard Reset: If stored season doesn't match our start date, reset it.
     if (seasonStartDate) {
       const storedDate = new Date(seasonStartDate);
       const desiredTime = desiredStart.getTime();
@@ -44,7 +44,7 @@ const Index = () => {
     }
 
     if (rounds.length === 0) {
-      console.log("🚀 Initializing new season for May 6th...");
+      console.log("🚀 Initializing new season for April 29th...");
       initializeSeason(desiredStart);
     }
   }, [rounds.length, initializeSeason, seasonStartDate, nuclearReset]);
