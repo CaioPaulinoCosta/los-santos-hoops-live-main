@@ -55,7 +55,7 @@ export const NoGamesView = () => {
                     {phase === 'finals' ? 'O Dia da Decisão' : 'Não há jogos agora'}
                 </h2>
                 <p className="text-muted-foreground">
-                    Início da temporada em <span className="text-primary font-bold">06 de Maio de 2026</span> às 20:00
+                    Início da temporada em <span className="text-primary font-bold">29 de Abril de 2026</span> às 20:00
                 </p>
             </div>
 

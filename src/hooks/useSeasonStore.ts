@@ -76,7 +76,7 @@ export const useSeasonStore = create<SeasonStore>()(
             ...initialState,
 
             initializeSeason: async (startDate?) => {
-                const desiredStart = startDate || new Date("2026-04-29T12:00:00");
+                const desiredStart = startDate || new Date("2026-04-29T20:00:00");
                 
                 try {
                     // Tenta buscar do backend primeiro (opcional)

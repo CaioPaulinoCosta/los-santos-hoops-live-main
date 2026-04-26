@@ -28,7 +28,7 @@ const Index = () => {
 
   // Initialize season if needed
   useEffect(() => {
-    const desiredStart = new Date("2026-04-29T12:00:00");
+    const desiredStart = new Date("2026-04-29T20:00:00");
     
     // Hard Reset: If stored season doesn't match our start date, reset it.
     if (seasonStartDate) {
