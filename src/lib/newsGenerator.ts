@@ -18,14 +18,9 @@ export const newsGenerator = {
         const { addNews } = useNewsStore.getState();
         const { number: roundNumber, games } = roundData;
 
-        console.log('🗞️ Generating news for round', roundNumber);
-        console.log('📊 Games in round:', games.length);
-        console.log('✅ Completed games:', games.filter(g => g.isComplete).length);
-
         // Generate news for each completed game
         games.forEach((game) => {
             if (!game.isComplete) {
-                console.log('⏭️ Skipping incomplete game:', game.id);
                 return;
             }
 
@@ -99,8 +94,6 @@ export const newsGenerator = {
                 round: roundNumber,
                 type
             });
-
-            console.log('📰 Added news:', title);
         });
 
         // Generate a round summary news

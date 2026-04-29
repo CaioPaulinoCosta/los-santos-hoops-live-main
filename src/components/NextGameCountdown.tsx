@@ -29,7 +29,7 @@ export const NextGameCountdown = () => {
                 <div className="flex-1">
                     <h3 className="text-lg font-bold text-foreground mb-1">Próxima Rodada</h3>
                     <p className="text-sm text-muted-foreground">
-                        {dayNames[nextGame.getDay()]}, {nextGame.getDate()} de {monthNames[nextGame.getMonth()]} às 20:00
+                        {dayNames[nextGame.getDay()]}, {nextGame.getDate()} de {monthNames[nextGame.getMonth()]} às {nextGame.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </p>
                 </div>
                 <div className="text-right">

@@ -18,7 +18,7 @@ export const DEFAULT_SCHEDULE: ScheduleConfig = {
 
 export class ScheduleManager {
     private config: ScheduleConfig;
-    public static SEASON_START_DATE = new Date("2026-04-29T20:00:00");
+    public static SEASON_START_DATE = new Date("2026-04-29T21:30:00-03:00");
 
     constructor(config: ScheduleConfig = DEFAULT_SCHEDULE) {
         this.config = config;
@@ -35,14 +35,20 @@ export class ScheduleManager {
      * Check if current time is during game time (8pm - 8:10pm)
      */
     isGameTime(date: Date = new Date()): boolean {
+        // If we are at the season start day, use the specific start time
+        const start = ScheduleManager.SEASON_START_DATE;
+        if (date.toDateString() === start.toDateString() && date >= start) {
+            const end = new Date(start.getTime() + this.config.gameDurationMinutes * 60000);
+            return date < end;
+        }
+
         const hour = date.getHours();
         const minute = date.getMinutes();
 
         const startHour = this.config.gameStartHour;
-        const endHour = startHour;
         const endMinute = this.config.gameDurationMinutes;
 
-        // Game is from 20:00 to 20:10
+        // Fallback for regular schedule
         if (hour === startHour) {
             return minute < endMinute;
         }

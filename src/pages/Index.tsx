@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { GameCard } from "@/components/GameCard";
 import { NoGamesView } from "@/components/NoGamesView";
@@ -19,35 +20,19 @@ const Index = () => {
     phase,
     champion,
     initializeSeason,
-    nuclearReset,
     checkAndGenerateResults,
-    advanceRound,
-    seasonStartDate
+    advanceRound
   } = useSeasonStore();
 
 
   // Initialize season if needed
   useEffect(() => {
-    const desiredStart = new Date("2026-04-29T20:00:00");
+    const desiredStart = new Date("2026-04-29T21:30:00-03:00");
     
-    // Hard Reset: If stored season doesn't match our start date, reset it.
-    if (seasonStartDate) {
-      const storedDate = new Date(seasonStartDate);
-      const desiredTime = desiredStart.getTime();
-      const storedTime = storedDate.getTime();
-      
-      if (storedTime !== desiredTime) {
-        console.log("♻️ NUCLEAR RESET: Data mismatch. Purging storage...");
-        nuclearReset();
-        return; // Stop rendering
-      }
-    }
-
     if (rounds.length === 0) {
-      console.log("🚀 Initializing new season for April 29th...");
       initializeSeason(desiredStart);
     }
-  }, [rounds.length, initializeSeason, seasonStartDate, nuclearReset]);
+  }, [rounds.length, initializeSeason]);
 
   // Update time display
   useEffect(() => {
@@ -67,7 +52,7 @@ const Index = () => {
   useEffect(() => {
     const checkInterval = setInterval(() => {
       checkAndGenerateResults();
-    }, 60000); // Every minute
+    }, 5000); // Every 5 seconds for better responsiveness
 
     return () => clearInterval(checkInterval);
   }, [checkAndGenerateResults]);

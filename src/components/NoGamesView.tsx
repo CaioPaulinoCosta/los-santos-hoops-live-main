@@ -7,8 +7,12 @@ import { useStandingsStore } from "@/hooks/useStandingsStore";
 import { teams } from "@/data/teams";
 
 export const NoGamesView = () => {
-    const { currentRound, phase, rounds } = useSeasonStore();
+    const { currentRound, phase, rounds, seasonStartDate } = useSeasonStore();
     const { teamStats } = useStandingsStore();
+    
+    const displayDate = seasonStartDate ? new Date(seasonStartDate) : new Date("2026-04-29T21:30:00-03:00");
+    const formattedDate = displayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+    const formattedTime = displayDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
     // Get current round games
     const currentRoundData = rounds.find(r => r.number === currentRound);
@@ -55,7 +59,7 @@ export const NoGamesView = () => {
                     {phase === 'finals' ? 'O Dia da Decisão' : 'Não há jogos agora'}
                 </h2>
                 <p className="text-muted-foreground">
-                    Início da temporada em <span className="text-primary font-bold">29 de Abril de 2026</span> às 20:00
+                    Início da temporada em <span className="text-primary font-bold">{formattedDate}</span> às {formattedTime}
                 </p>
             </div>
 

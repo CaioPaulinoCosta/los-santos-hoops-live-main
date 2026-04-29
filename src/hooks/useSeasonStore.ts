@@ -5,6 +5,7 @@ import { scheduleManager } from '@/lib/scheduleManager';
 import { useStandingsStore } from './useStandingsStore';
 import { newsGenerator } from '@/lib/newsGenerator';
 import { seededRandom } from '@/lib/utils';
+import { calculateGameState } from '@/lib/gameSimulation';
 
 export type SeasonPhase =
     | 'regular'
@@ -57,6 +58,7 @@ interface SeasonStore extends SeasonState {
     checkAndGenerateResults: () => void;
     startPlayoffs: () => void;
     resetSeason: () => void;
+    nuclearReset: () => void;
 }
 
 const initialState: SeasonState = {
@@ -106,15 +108,12 @@ export const useSeasonStore = create<SeasonStore>()(
                         runnerUp: null
                     });
 
-                    console.log("✅ Season initialized:", finalDate);
                 } catch (error) {
-                    console.error("❌ Error during initialization:", error);
+                    // Silently fail
                 }
             },
 
             nuclearReset: () => {
-                console.warn("💥 NUCLEAR RESET: Clearing all league data...");
-                
                 // 1. Limpeza do LocalStorage Bruta
                 localStorage.removeItem('season-storage');
                 localStorage.removeItem('news-storage');
@@ -304,12 +303,9 @@ export const useSeasonStore = create<SeasonStore>()(
                 const state = get();
                 const nextRound = state.currentRound + 1;
 
-                console.log('⏭️ Advancing from round', state.currentRound, 'to round', nextRound);
-
                 // Generate news for the completed round before advancing
                 const completedRound = state.rounds.find(r => r.number === state.currentRound);
                 if (completedRound && completedRound.isComplete) {
-                    console.log('📰 Round is complete, generating news...');
                     // Get current standings for context
                     const { teamStats } = useStandingsStore.getState();
                     const standings = Array.from(teamStats.entries())
@@ -322,8 +318,6 @@ export const useSeasonStore = create<SeasonStore>()(
                         });
 
                     newsGenerator.generateNewsForRound(completedRound, standings);
-                } else {
-                    console.log('⚠️ Round not complete, skipping news generation');
                 }
 
                 // Check if we should start playoffs
@@ -392,34 +386,68 @@ export const useSeasonStore = create<SeasonStore>()(
 
                 if (!currentRound || currentRound.isComplete) return;
 
-                // Check if game time has started (20:00)
-                const gameStartTime = new Date(currentRound.date);
-                gameStartTime.setHours(20, 0, 0, 0);
-
-                // Check if game time has finished (20:10)
-                const gameEndTime = new Date(currentRound.date);
-                gameEndTime.setHours(20, 10, 0, 0);
-
-                if (now > gameEndTime) {
-                    // Late arrival: Automatic results for all games in the round
-                    console.log('🏁 Round time expired. Finalizing all games automatically.');
-                    currentRound.games.forEach(game => {
-                        if (!game.isComplete) {
-                            get().simulateGame(game.id);
+                let anyChange = false;
+                const updatedGames = currentRound.games.map(game => {
+                    const gameState = calculateGameState(game.id, new Date(currentRound.date), now);
+                    
+                    if (gameState.isFinished && !game.isComplete) {
+                        anyChange = true;
+                        // For auto-finalization, we simulate to ensure it's saved to standings
+                        const random = seededRandom(game.id);
+                        let finalHome = gameState.homeScore;
+                        let finalAway = gameState.awayScore;
+                        
+                        // Standings update
+                        if (state.phase === 'regular') {
+                            useStandingsStore.getState().updateGameResult(
+                                game.homeTeam.id,
+                                game.awayTeam.id,
+                                finalHome,
+                                finalAway
+                            );
                         }
-                    });
-                } else if (now >= gameStartTime) {
-                    // During game time: Ensure isLive is true
-                    if (!currentRound.games[0].isLive && !currentRound.games[0].isComplete) {
-                        console.log('📡 Games are now LIVE.');
-                        set({
-                            rounds: state.rounds.map(r => 
-                                r.number === state.currentRound 
-                                ? { ...r, games: r.games.map(g => ({ ...g, isLive: true })) } 
-                                : r
-                            )
-                        });
+                        
+                        return { ...game, isComplete: true, isLive: false, homeScore: finalHome, awayScore: finalAway };
+                    } else if (gameState.isLive && !game.isLive) {
+                        anyChange = true;
+                        return { ...game, isLive: true, homeScore: gameState.homeScore, awayScore: gameState.awayScore };
+                    } else if (gameState.isLive) {
+                        // Keep scores updated even if already live
+                        return { ...game, homeScore: gameState.homeScore, awayScore: gameState.awayScore };
                     }
+                    return game;
+                });
+
+                if (anyChange || (now.getSeconds() === 0)) { // Update store periodically or on status change
+                    set({
+                        rounds: state.rounds.map(r => 
+                            r.number === state.currentRound 
+                            ? { ...r, games: updatedGames } 
+                            : r
+                        )
+                    });
+                }
+
+                // Check if all games are now complete
+                if (updatedGames.every(g => g.isComplete) && !currentRound.isComplete) {
+                    set({
+                        rounds: state.rounds.map(r =>
+                            r.number === state.currentRound ? { ...r, isComplete: true } : r
+                        )
+                    });
+                    
+                    // Generate news
+                    const { teamStats } = useStandingsStore.getState();
+                    const standings = Array.from(teamStats.entries())
+                        .map(([teamId, stats]) => ({ teamId, wins: stats.wins, losses: stats.losses }))
+                        .sort((a, b) => {
+                            const aWinPct = a.wins / (a.wins + a.losses || 1);
+                            const bWinPct = b.wins / (b.wins + b.losses || 1);
+                            if (bWinPct !== aWinPct) return bWinPct - aWinPct;
+                            return b.wins - a.wins;
+                        });
+
+                    newsGenerator.generateNewsForRound({ ...currentRound, games: updatedGames, isComplete: true }, standings);
                 }
             },
 
