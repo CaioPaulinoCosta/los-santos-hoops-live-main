@@ -20,8 +20,10 @@ const Index = () => {
     phase,
     champion,
     initializeSeason,
+    nuclearReset,
     checkAndGenerateResults,
-    advanceRound
+    advanceRound,
+    seasonStartDate
   } = useSeasonStore();
 
 
@@ -29,10 +31,22 @@ const Index = () => {
   useEffect(() => {
     const desiredStart = new Date("2026-04-29T21:30:00-03:00");
     
+    // Hard Reset: If stored season doesn't match our official start date, reset it.
+    if (seasonStartDate) {
+      const storedDate = new Date(seasonStartDate);
+      const desiredTime = Math.floor(desiredStart.getTime() / 1000);
+      const storedTime = Math.floor(storedDate.getTime() / 1000);
+      
+      if (storedTime !== desiredTime) {
+        nuclearReset();
+        return; 
+      }
+    }
+
     if (rounds.length === 0) {
       initializeSeason(desiredStart);
     }
-  }, [rounds.length, initializeSeason]);
+  }, [rounds.length, initializeSeason, seasonStartDate, nuclearReset]);
 
   // Update time display
   useEffect(() => {
