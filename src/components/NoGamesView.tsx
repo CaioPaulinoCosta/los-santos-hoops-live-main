@@ -10,7 +10,7 @@ export const NoGamesView = () => {
     const { currentRound, phase, rounds, seasonStartDate } = useSeasonStore();
     const { teamStats } = useStandingsStore();
     
-    const displayDate = seasonStartDate ? new Date(seasonStartDate) : new Date("2026-04-29T21:30:00-03:00");
+    const displayDate = seasonStartDate ? new Date(seasonStartDate) : new Date("2026-04-29T21:30:05-03:00");
     const formattedDate = displayDate.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
     const formattedTime = displayDate.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 

@@ -29,7 +29,7 @@ const Index = () => {
 
   // Initialize season if needed
   useEffect(() => {
-    const desiredStart = new Date("2026-04-29T21:30:00-03:00");
+    const desiredStart = new Date("2026-04-29T21:30:05-03:00");
     
     // Hard Reset: If stored season doesn't match our official start date, reset it.
     if (seasonStartDate) {
@@ -215,6 +215,7 @@ const Index = () => {
               {currentRoundData.games.map((game) => (
                 <GameCard
                   key={game.id}
+                  id={game.id}
                   homeTeam={game.homeTeam}
                   awayTeam={game.awayTeam}
                   gameNumber={parseInt(game.id.split('-g')[1] || game.id.split('-')[1] || '1')}

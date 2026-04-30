@@ -388,7 +388,7 @@ export const useSeasonStore = create<SeasonStore>()(
 
                 let anyChange = false;
                 const updatedGames = currentRound.games.map(game => {
-                    const gameState = calculateGameState(game.id, new Date(currentRound.date), now);
+                    const gameState = calculateGameState(game.homeTeam.id + game.awayTeam.id, new Date(currentRound.date), now);
                     
                     if (gameState.isFinished && !game.isComplete) {
                         anyChange = true;

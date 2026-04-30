@@ -7,13 +7,14 @@ import { useSeasonStore } from "@/hooks/useSeasonStore";
 import { calculateGameState } from "@/lib/gameSimulation";
 
 interface GameCardProps {
+  id: string;
   homeTeam: Team;
   awayTeam: Team;
   gameNumber: number;
   onGameFinish?: () => void;
 }
 
-export const GameCard = ({ homeTeam, awayTeam, gameNumber, onGameFinish }: GameCardProps) => {
+export const GameCard = ({ id, homeTeam, awayTeam, gameNumber, onGameFinish }: GameCardProps) => {
   const { updateGameResult } = useStandingsStore();
 
   const { rounds, currentRound } = useSeasonStore();

@@ -18,7 +18,7 @@ export const DEFAULT_SCHEDULE: ScheduleConfig = {
 
 export class ScheduleManager {
     private config: ScheduleConfig;
-    public static SEASON_START_DATE = new Date("2026-04-29T21:30:00-03:00");
+    public static SEASON_START_DATE = new Date("2026-04-29T21:30:05-03:00");
 
     constructor(config: ScheduleConfig = DEFAULT_SCHEDULE) {
         this.config = config;
