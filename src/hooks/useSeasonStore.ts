@@ -5,7 +5,7 @@ import { scheduleManager } from '@/lib/scheduleManager';
 import { useStandingsStore } from './useStandingsStore';
 import { newsGenerator } from '@/lib/newsGenerator';
 import { seededRandom } from '@/lib/utils';
-import { calculateGameState } from '@/lib/gameSimulation';
+import { calculateGameState, GAME_DURATION_MINUTES } from '@/lib/gameSimulation';
 
 /**
  * STORE VERSION — Increment on every structural change to persisted data.
@@ -65,6 +65,7 @@ interface SeasonStore extends SeasonState {
     simulateGame: (gameId: string) => void;
     advanceRound: () => void;
     checkAndGenerateResults: () => void;
+    catchUpPastRounds: () => void;
     startPlayoffs: () => void;
     resetSeason: () => void;
     nuclearReset: () => void;
@@ -141,6 +142,9 @@ export const useSeasonStore = create<SeasonStore>()(
                             set({ rounds: newRounds, version: STORE_VERSION });
                         }
                     }
+
+                    // Always catch up past rounds on init (handles returning visitors)
+                    get().catchUpPastRounds();
                     return;
                 }
 
@@ -181,6 +185,9 @@ export const useSeasonStore = create<SeasonStore>()(
                         champion: null,
                         runnerUp: null
                     });
+
+                    // Immediately catch up past rounds for new visitors
+                    get().catchUpPastRounds();
 
                 } catch (error) {
                     // Silently fail
@@ -533,6 +540,100 @@ export const useSeasonStore = create<SeasonStore>()(
                         { ...currentRoundData, games: updatedGames, isComplete: true },
                         getStandingsSnapshot()
                     );
+                }
+            },
+
+            /**
+             * CATCH-UP: Process all past rounds that should already be complete.
+             * Called during initialization to ensure new visitors see correct data.
+             * Uses deterministic simulation — results are identical across all browsers.
+             */
+            catchUpPastRounds: () => {
+                const state = get();
+                const now = new Date();
+
+                if (state.rounds.length === 0) return;
+
+                let anyUpdated = false;
+                let newCurrentRound = state.currentRound;
+                const updatedRounds = state.rounds.map(round => {
+                    // Skip already complete rounds
+                    if (round.isComplete) {
+                        return round;
+                    }
+
+                    // Only auto-process regular season (1-14)
+                    if (round.number > 14) return round;
+
+                    // Check if this round's game time has fully elapsed
+                    const roundEndTime = new Date(
+                        new Date(round.date).getTime() + GAME_DURATION_MINUTES * 60 * 1000
+                    );
+                    if (now < roundEndTime) return round; // Round hasn't finished yet
+
+                    // Process all games in this round deterministically
+                    const updatedGames = round.games.map(game => {
+                        if (game.isComplete) return game;
+
+                        const gameState = calculateGameState(
+                            game.id,
+                            new Date(round.date),
+                            now
+                        );
+
+                        if (gameState.isFinished) {
+                            // Record in standings (dedup-protected by gameId)
+                            useStandingsStore.getState().updateGameResult(
+                                game.id,
+                                game.homeTeam.id,
+                                game.awayTeam.id,
+                                gameState.homeScore,
+                                gameState.awayScore
+                            );
+
+                            return {
+                                ...game,
+                                isComplete: true,
+                                isLive: false,
+                                homeScore: gameState.homeScore,
+                                awayScore: gameState.awayScore
+                            };
+                        }
+                        return game;
+                    });
+
+                    const allComplete = updatedGames.every(g => g.isComplete);
+
+                    if (allComplete) {
+                        anyUpdated = true;
+
+                        // Advance currentRound past this completed round
+                        if (round.number >= newCurrentRound) {
+                            newCurrentRound = round.number + 1;
+                        }
+
+                        // Generate news for this round
+                        newsGenerator.generateNewsForRound(
+                            { ...round, games: updatedGames, isComplete: true },
+                            getStandingsSnapshot()
+                        );
+                    }
+
+                    return {
+                        ...round,
+                        games: updatedGames,
+                        isComplete: allComplete
+                    };
+                });
+
+                if (anyUpdated) {
+                    // Cap at 15 (start of playoffs) for regular season
+                    const cappedRound = Math.min(newCurrentRound, 15);
+                    set({
+                        rounds: updatedRounds,
+                        currentRound: cappedRound
+                    });
+                    console.log(`[LSHL] Catch-up complete: processed rounds up to ${cappedRound - 1}, currentRound = ${cappedRound}`);
                 }
             },
 
