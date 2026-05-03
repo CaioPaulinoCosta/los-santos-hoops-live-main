@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, CheckCircle2, Clock } from "lucide-react";
+import { Calendar, CheckCircle2, Clock, Trophy } from "lucide-react";
 import arenaBackground from "@/assets/basketball-arena-bg.jpg";
 import { useSeasonStore } from "@/hooks/useSeasonStore";
 import { SiteHeader } from "@/components/SiteHeader";
@@ -107,69 +107,99 @@ const RoundHistory = () => {
                                         </div>
 
                                         <div className="p-4 space-y-3">
-                                            {round.games.map((game) => (
-                                                <div
-                                                    key={game.id}
-                                                    className="flex items-center justify-between p-3 bg-muted/20 rounded-lg"
-                                                >
-                                                    {/* Away Team */}
-                                                    <div className="flex items-center gap-2 flex-1">
-                                                        {game.awayTeam.logo ? (
-                                                            <img
-                                                                src={game.awayTeam.logo}
-                                                                alt={game.awayTeam.name}
-                                                                className="w-8 h-8 object-contain"
-                                                            />
-                                                        ) : (
-                                                            <div
-                                                                className="w-8 h-8 rounded-full"
-                                                                style={{ backgroundColor: game.awayTeam.color }}
-                                                            />
-                                                        )}
-                                                        <span className="font-semibold text-foreground text-sm">
-                                                            {game.awayTeam.shortName}
-                                                        </span>
-                                                    </div>
+                                            {round.games.map((game) => {
+                                                // Determine winner from persisted scores
+                                                const isCorrupted = game.isComplete && game.homeScore === 0 && game.awayScore === 0;
+                                                const winner = game.isComplete && !isCorrupted
+                                                    ? (game.homeScore > game.awayScore ? game.homeTeam
+                                                        : game.awayScore > game.homeScore ? game.awayTeam
+                                                        : null)
+                                                    : null;
 
-                                                    {/* Score */}
-                                                    <div className="flex items-center gap-3 px-4">
-                                                        {game.isComplete ? (
-                                                            <>
-                                                                <span className={`text-xl font-bold tabular-nums ${game.awayScore > game.homeScore ? 'text-primary' : 'text-muted-foreground'
-                                                                    }`}>
-                                                                    {game.awayScore}
+                                                return (
+                                                    <div
+                                                        key={game.id}
+                                                        className="p-3 bg-muted/20 rounded-lg space-y-2"
+                                                    >
+                                                        <div className="flex items-center justify-between">
+                                                            {/* Away Team */}
+                                                            <div className="flex items-center gap-2 flex-1">
+                                                                {game.awayTeam.logo ? (
+                                                                    <img
+                                                                        src={game.awayTeam.logo}
+                                                                        alt={game.awayTeam.name}
+                                                                        className="w-8 h-8 object-contain"
+                                                                    />
+                                                                ) : (
+                                                                    <div
+                                                                        className="w-8 h-8 rounded-full"
+                                                                        style={{ backgroundColor: game.awayTeam.color }}
+                                                                    />
+                                                                )}
+                                                                <span className={`font-semibold text-sm ${
+                                                                    winner?.id === game.awayTeam.id ? 'text-primary' : 'text-foreground'
+                                                                }`}>
+                                                                    {game.awayTeam.shortName}
                                                                 </span>
-                                                                <span className="text-muted-foreground">×</span>
-                                                                <span className={`text-xl font-bold tabular-nums ${game.homeScore > game.awayScore ? 'text-primary' : 'text-muted-foreground'
-                                                                    }`}>
-                                                                    {game.homeScore}
-                                                                </span>
-                                                            </>
-                                                        ) : (
-                                                            <span className="text-sm text-muted-foreground">vs</span>
-                                                        )}
-                                                    </div>
+                                                            </div>
 
-                                                    {/* Home Team */}
-                                                    <div className="flex items-center gap-2 flex-1 justify-end">
-                                                        <span className="font-semibold text-foreground text-sm">
-                                                            {game.homeTeam.shortName}
-                                                        </span>
-                                                        {game.homeTeam.logo ? (
-                                                            <img
-                                                                src={game.homeTeam.logo}
-                                                                alt={game.homeTeam.name}
-                                                                className="w-8 h-8 object-contain"
-                                                            />
-                                                        ) : (
-                                                            <div
-                                                                className="w-8 h-8 rounded-full"
-                                                                style={{ backgroundColor: game.homeTeam.color }}
-                                                            />
+                                                            {/* Score */}
+                                                            <div className="flex items-center gap-3 px-4">
+                                                                {game.isComplete ? (
+                                                                    isCorrupted ? (
+                                                                        <span className="text-sm text-muted-foreground italic">Resultado indisponível</span>
+                                                                    ) : (
+                                                                        <>
+                                                                            <span className={`text-xl font-bold tabular-nums ${game.awayScore > game.homeScore ? 'text-primary' : 'text-muted-foreground'
+                                                                                }`}>
+                                                                                {game.awayScore}
+                                                                            </span>
+                                                                            <span className="text-muted-foreground">×</span>
+                                                                            <span className={`text-xl font-bold tabular-nums ${game.homeScore > game.awayScore ? 'text-primary' : 'text-muted-foreground'
+                                                                                }`}>
+                                                                                {game.homeScore}
+                                                                            </span>
+                                                                        </>
+                                                                    )
+                                                                ) : (
+                                                                    <span className="text-sm text-muted-foreground">vs</span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Home Team */}
+                                                            <div className="flex items-center gap-2 flex-1 justify-end">
+                                                                <span className={`font-semibold text-sm ${
+                                                                    winner?.id === game.homeTeam.id ? 'text-primary' : 'text-foreground'
+                                                                }`}>
+                                                                    {game.homeTeam.shortName}
+                                                                </span>
+                                                                {game.homeTeam.logo ? (
+                                                                    <img
+                                                                        src={game.homeTeam.logo}
+                                                                        alt={game.homeTeam.name}
+                                                                        className="w-8 h-8 object-contain"
+                                                                    />
+                                                                ) : (
+                                                                    <div
+                                                                        className="w-8 h-8 rounded-full"
+                                                                        style={{ backgroundColor: game.homeTeam.color }}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Winner badge */}
+                                                        {winner && (
+                                                            <div className="flex items-center justify-center gap-1.5">
+                                                                <Trophy className="w-3 h-3 text-primary" />
+                                                                <span className="text-xs font-bold text-primary">
+                                                                    Vencedor: {winner.name}
+                                                                </span>
+                                                            </div>
                                                         )}
                                                     </div>
-                                                </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     </Card>
                                 ))

@@ -1,11 +1,17 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { Team } from '@/data/teams';
+import { Team, teams } from '@/data/teams';
 import { scheduleManager } from '@/lib/scheduleManager';
 import { useStandingsStore } from './useStandingsStore';
 import { newsGenerator } from '@/lib/newsGenerator';
 import { seededRandom } from '@/lib/utils';
 import { calculateGameState } from '@/lib/gameSimulation';
+
+/**
+ * STORE VERSION — Increment on every structural change to persisted data.
+ * The migration logic in storage.getItem handles upgrades non-destructively.
+ */
+const STORE_VERSION = 2;
 
 export type SeasonPhase =
     | 'regular'
@@ -32,6 +38,9 @@ export interface Round {
 }
 
 export interface SeasonState {
+    // Schema version for safe migrations
+    version: number;
+
     // Configuration
     seasonStartDate: Date | null;
     calendar: Date[];
@@ -62,6 +71,7 @@ interface SeasonStore extends SeasonState {
 }
 
 const initialState: SeasonState = {
+    version: STORE_VERSION,
     seasonStartDate: null,
     calendar: [],
     currentRound: 1,
@@ -72,14 +82,71 @@ const initialState: SeasonState = {
     runnerUp: null
 };
 
+/**
+ * Helper: build sorted standings array from useStandingsStore
+ */
+function getStandingsSnapshot() {
+    const { teamStats } = useStandingsStore.getState();
+    return Array.from(teamStats.entries())
+        .map(([teamId, stats]) => ({ teamId, wins: stats.wins, losses: stats.losses }))
+        .sort((a, b) => {
+            const aWinPct = a.wins / (a.wins + a.losses || 1);
+            const bWinPct = b.wins / (b.wins + b.losses || 1);
+            if (bWinPct !== aWinPct) return bWinPct - aWinPct;
+            return b.wins - a.wins;
+        });
+}
+
 export const useSeasonStore = create<SeasonStore>()(
     persist(
         (set, get) => ({
             ...initialState,
 
             initializeSeason: async (startDate?) => {
+                const state = get();
                 const desiredStart = startDate || new Date("2026-04-29T20:00:00");
-                
+
+                /**
+                 * SAFE INIT: If we already have rounds, do NOT reinitialize.
+                 * Only complement missing future rounds to preserve all historical data.
+                 */
+                if (state.rounds.length > 0) {
+                    // Trigger standings migration if needed
+                    const { processedGameIds } = useStandingsStore.getState();
+                    if (processedGameIds.size === 0) {
+                        useStandingsStore.getState().rebuildFromRounds(state.rounds);
+                    }
+
+                    // Generate any missing future rounds (for regular season only)
+                    if (state.phase === 'regular') {
+                        const existingRoundNumbers = new Set(state.rounds.map(r => r.number));
+                        let hasNewRounds = false;
+                        const newRounds = [...state.rounds];
+
+                        for (let i = 1; i <= 14; i++) {
+                            if (!existingRoundNumbers.has(i)) {
+                                const games = get().generateRoundGames(i);
+                                newRounds.push({
+                                    number: i,
+                                    date: state.calendar[i - 1] || new Date(),
+                                    games,
+                                    isComplete: false
+                                });
+                                hasNewRounds = true;
+                            }
+                        }
+
+                        if (hasNewRounds) {
+                            newRounds.sort((a, b) => a.number - b.number);
+                            set({ rounds: newRounds, version: STORE_VERSION });
+                        }
+                    }
+                    return;
+                }
+
+                /**
+                 * FIRST-TIME INIT: Brand new user, generate everything from scratch.
+                 */
                 try {
                     // Tenta buscar do backend primeiro (opcional)
                     const response = await fetch('http://localhost:3001/season').catch(() => null);
@@ -90,19 +157,26 @@ export const useSeasonStore = create<SeasonStore>()(
                     const finalDate = apiStartDate || desiredStart;
 
                     const calendar = scheduleManager.generateSeasonCalendar(finalDate);
-                    const firstRoundGames = get().generateRoundGames(1);
+
+                    // Generate ALL 14 regular season rounds upfront for consistency
+                    const allRounds: Round[] = [];
+                    for (let i = 1; i <= 14; i++) {
+                        const games = get().generateRoundGames(i);
+                        allRounds.push({
+                            number: i,
+                            date: calendar[i - 1],
+                            games,
+                            isComplete: false
+                        });
+                    }
 
                     set({
+                        version: STORE_VERSION,
                         seasonStartDate: finalDate,
                         calendar,
                         currentRound: 1,
                         phase: 'regular',
-                        rounds: [{
-                            number: 1,
-                            date: calendar[0],
-                            games: firstRoundGames,
-                            isComplete: false
-                        }],
+                        rounds: allRounds,
                         playoffTeams: [],
                         champion: null,
                         runnerUp: null
@@ -119,13 +193,10 @@ export const useSeasonStore = create<SeasonStore>()(
                 localStorage.removeItem('news-storage');
                 localStorage.removeItem('standings-storage');
                 
-                // 2. Reset dos outros stores (se puder importar)
-                // Caso contrário, o removeItem já resolve no próximo reload
-                
-                // 3. Reset do estado atual
+                // 2. Reset do estado atual
                 set(initialState);
 
-                // 4. Force Reload para limpar memória do React
+                // 3. Force Reload para limpar memória do React
                 window.location.reload();
             },
 
@@ -235,48 +306,48 @@ export const useSeasonStore = create<SeasonStore>()(
             completeGame: (gameId, homeScore, awayScore) => {
                 const state = get();
 
-                set({
-                    rounds: state.rounds.map(round => ({
-                        ...round,
-                        games: round.games.map(game => {
-                            if (game.id === gameId) {
-                                // Save to standings if regular season
-                                if (state.phase === 'regular') {
-                                    useStandingsStore.getState().updateGameResult(
-                                        game.homeTeam.id,
-                                        game.awayTeam.id,
-                                        homeScore,
-                                        awayScore
-                                    );
-                                }
-                                return { ...game, isComplete: true, isLive: false, homeScore, awayScore };
-                            }
-                            return game;
-                        })
-                    }))
-                });
+                // Find the game to check if already complete
+                const targetRound = state.rounds.find(r => 
+                    r.games.some(g => g.id === gameId)
+                );
+                const targetGame = targetRound?.games.find(g => g.id === gameId);
+                
+                // IMMUTABILITY GUARD: never re-process a completed game
+                if (targetGame?.isComplete) return;
 
-                // Check if round is complete
-                const currentRound = state.rounds.find(r => r.number === state.currentRound);
-                if (currentRound && currentRound.games.every(g => g.isComplete)) {
-                    set({
-                        rounds: state.rounds.map(r =>
-                            r.number === state.currentRound ? { ...r, isComplete: true } : r
-                        )
+                // Update game AND check round completion in a SINGLE atomic set()
+                const updatedRounds = state.rounds.map(round => {
+                    const updatedGames = round.games.map(game => {
+                        if (game.id === gameId) {
+                            // Save to standings if regular season (with dedup protection)
+                            if (state.phase === 'regular') {
+                                useStandingsStore.getState().updateGameResult(
+                                    game.id,
+                                    game.homeTeam.id,
+                                    game.awayTeam.id,
+                                    homeScore,
+                                    awayScore
+                                );
+                            }
+                            return { ...game, isComplete: true, isLive: false, homeScore, awayScore };
+                        }
+                        return game;
                     });
 
-                    // Generate news automatically when round completes
-                    const { teamStats } = useStandingsStore.getState();
-                    const standings = Array.from(teamStats.entries())
-                        .map(([teamId, stats]) => ({ teamId, wins: stats.wins, losses: stats.losses }))
-                        .sort((a, b) => {
-                            const aWinPct = a.wins / (a.wins + a.losses || 1);
-                            const bWinPct = b.wins / (b.wins + b.losses || 1);
-                            if (bWinPct !== aWinPct) return bWinPct - aWinPct;
-                            return b.wins - a.wins;
-                        });
+                    // Check if ALL games in this round are now complete
+                    const allComplete = updatedGames.every(g => g.isComplete);
 
-                    newsGenerator.generateNewsForRound(currentRound, standings);
+                    return { ...round, games: updatedGames, isComplete: allComplete || round.isComplete };
+                });
+
+                set({ rounds: updatedRounds });
+
+                // Generate news if the round just completed
+                const completedRound = updatedRounds.find(r => 
+                    r.games.some(g => g.id === gameId)
+                );
+                if (completedRound?.isComplete && !targetRound?.isComplete) {
+                    newsGenerator.generateNewsForRound(completedRound, getStandingsSnapshot());
                 }
             },
 
@@ -306,18 +377,7 @@ export const useSeasonStore = create<SeasonStore>()(
                 // Generate news for the completed round before advancing
                 const completedRound = state.rounds.find(r => r.number === state.currentRound);
                 if (completedRound && completedRound.isComplete) {
-                    // Get current standings for context
-                    const { teamStats } = useStandingsStore.getState();
-                    const standings = Array.from(teamStats.entries())
-                        .map(([teamId, stats]) => ({ teamId, wins: stats.wins, losses: stats.losses }))
-                        .sort((a, b) => {
-                            const aWinPct = a.wins / (a.wins + a.losses || 1);
-                            const bWinPct = b.wins / (b.wins + b.losses || 1);
-                            if (bWinPct !== aWinPct) return bWinPct - aWinPct;
-                            return b.wins - a.wins;
-                        });
-
-                    newsGenerator.generateNewsForRound(completedRound, standings);
+                    newsGenerator.generateNewsForRound(completedRound, getStandingsSnapshot());
                 }
 
                 // Check if we should start playoffs
@@ -355,99 +415,124 @@ export const useSeasonStore = create<SeasonStore>()(
                     return;
                 }
 
-                const nextRoundGames = get().generateRoundGames(nextRound);
-                const nextRoundDate = state.calendar[nextRound - 1];
+                // For regular season, the round should already exist (pre-generated)
+                const existingRound = state.rounds.find(r => r.number === nextRound);
+                if (existingRound) {
+                    // Determine phase
+                    let phase: SeasonPhase = 'regular';
+                    if (nextRound === 15) phase = 'quarterfinals';
+                    else if (nextRound === 16) phase = 'semifinals';
+                    else if (nextRound === 17) phase = 'finals';
 
-                // Determine phase
-                let phase: SeasonPhase = 'regular';
-                if (nextRound === 15) phase = 'quarterfinals';
-                else if (nextRound === 16) phase = 'semifinals';
-                else if (nextRound === 17) phase = 'finals';
+                    set({ currentRound: nextRound, phase });
+                } else {
+                    // Playoff rounds or missing rounds: generate on demand
+                    const nextRoundGames = get().generateRoundGames(nextRound);
+                    const nextRoundDate = state.calendar[nextRound - 1];
 
-                set({
-                    currentRound: nextRound,
-                    phase,
-                    rounds: [
-                        ...state.rounds,
-                        {
-                            number: nextRound,
-                            date: nextRoundDate,
-                            games: nextRoundGames,
-                            isComplete: false
-                        }
-                    ]
-                });
+                    let phase: SeasonPhase = 'regular';
+                    if (nextRound === 15) phase = 'quarterfinals';
+                    else if (nextRound === 16) phase = 'semifinals';
+                    else if (nextRound === 17) phase = 'finals';
+
+                    set({
+                        currentRound: nextRound,
+                        phase,
+                        rounds: [
+                            ...state.rounds,
+                            {
+                                number: nextRound,
+                                date: nextRoundDate,
+                                games: nextRoundGames,
+                                isComplete: false
+                            }
+                        ]
+                    });
+                }
             },
 
+            /**
+             * CRITICAL: Main game loop. Called every 5 seconds.
+             * 
+             * Rules:
+             * 1. Completed games are IMMUTABLE — never recalculate
+             * 2. Uses game.id as deterministic seed (not team ID concat)
+             * 3. All state changes in a SINGLE atomic set() to prevent race conditions
+             * 4. Standings updates use gameId-based deduplication
+             */
             checkAndGenerateResults: () => {
                 const state = get();
                 const now = new Date();
-                const currentRound = state.rounds.find(r => r.number === state.currentRound);
+                const currentRoundData = state.rounds.find(r => r.number === state.currentRound);
 
-                if (!currentRound || currentRound.isComplete) return;
+                if (!currentRoundData || currentRoundData.isComplete) return;
 
-                let anyChange = false;
-                const updatedGames = currentRound.games.map(game => {
-                    const gameState = calculateGameState(game.homeTeam.id + game.awayTeam.id, new Date(currentRound.date), now);
-                    
-                    if (gameState.isFinished && !game.isComplete) {
-                        anyChange = true;
-                        // For auto-finalization, we simulate to ensure it's saved to standings
-                        const random = seededRandom(game.id);
-                        let finalHome = gameState.homeScore;
-                        let finalAway = gameState.awayScore;
-                        
-                        // Standings update
+                let anyStatusChange = false;
+                const updatedGames = currentRoundData.games.map(game => {
+                    // IMMUTABLE: completed games are NEVER touched
+                    if (game.isComplete) return game;
+
+                    // Use game.id as seed for deterministic simulation
+                    const gameState = calculateGameState(
+                        game.id,
+                        new Date(currentRoundData.date),
+                        now
+                    );
+
+                    if (gameState.isFinished) {
+                        anyStatusChange = true;
+
+                        // Record in standings with dedup protection
                         if (state.phase === 'regular') {
                             useStandingsStore.getState().updateGameResult(
+                                game.id,
                                 game.homeTeam.id,
                                 game.awayTeam.id,
-                                finalHome,
-                                finalAway
+                                gameState.homeScore,
+                                gameState.awayScore
                             );
                         }
-                        
-                        return { ...game, isComplete: true, isLive: false, homeScore: finalHome, awayScore: finalAway };
-                    } else if (gameState.isLive && !game.isLive) {
-                        anyChange = true;
-                        return { ...game, isLive: true, homeScore: gameState.homeScore, awayScore: gameState.awayScore };
+
+                        return {
+                            ...game,
+                            isComplete: true,
+                            isLive: false,
+                            homeScore: gameState.homeScore,
+                            awayScore: gameState.awayScore
+                        };
                     } else if (gameState.isLive) {
-                        // Keep scores updated even if already live
-                        return { ...game, homeScore: gameState.homeScore, awayScore: gameState.awayScore };
+                        if (!game.isLive) anyStatusChange = true;
+                        return {
+                            ...game,
+                            isLive: true,
+                            homeScore: gameState.homeScore,
+                            awayScore: gameState.awayScore
+                        };
                     }
                     return game;
                 });
 
-                if (anyChange || (now.getSeconds() === 0)) { // Update store periodically or on status change
+                // Check if all games are now complete
+                const allComplete = updatedGames.every(g => g.isComplete);
+                const roundJustCompleted = allComplete && !currentRoundData.isComplete;
+
+                // SINGLE ATOMIC SET — prevents race conditions from multiple set() calls
+                if (anyStatusChange || roundJustCompleted || now.getSeconds() === 0) {
                     set({
-                        rounds: state.rounds.map(r => 
-                            r.number === state.currentRound 
-                            ? { ...r, games: updatedGames } 
-                            : r
+                        rounds: state.rounds.map(r =>
+                            r.number === state.currentRound
+                                ? { ...r, games: updatedGames, isComplete: allComplete }
+                                : r
                         )
                     });
                 }
 
-                // Check if all games are now complete
-                if (updatedGames.every(g => g.isComplete) && !currentRound.isComplete) {
-                    set({
-                        rounds: state.rounds.map(r =>
-                            r.number === state.currentRound ? { ...r, isComplete: true } : r
-                        )
-                    });
-                    
-                    // Generate news
-                    const { teamStats } = useStandingsStore.getState();
-                    const standings = Array.from(teamStats.entries())
-                        .map(([teamId, stats]) => ({ teamId, wins: stats.wins, losses: stats.losses }))
-                        .sort((a, b) => {
-                            const aWinPct = a.wins / (a.wins + a.losses || 1);
-                            const bWinPct = b.wins / (b.wins + b.losses || 1);
-                            if (bWinPct !== aWinPct) return bWinPct - aWinPct;
-                            return b.wins - a.wins;
-                        });
-
-                    newsGenerator.generateNewsForRound({ ...currentRound, games: updatedGames, isComplete: true }, standings);
+                // Generate news after the atomic set
+                if (roundJustCompleted) {
+                    newsGenerator.generateNewsForRound(
+                        { ...currentRoundData, games: updatedGames, isComplete: true },
+                        getStandingsSnapshot()
+                    );
                 }
             },
 
@@ -457,31 +542,35 @@ export const useSeasonStore = create<SeasonStore>()(
                 const standings = Array.from(teamStats.entries())
                     .map(([teamId, stats]) => ({ teamId, stats }))
                     .sort((a, b) => {
-                        const aWinPct = a.stats.wins / (a.stats.wins + a.stats.losses);
-                        const bWinPct = b.stats.wins / (b.stats.wins + b.stats.losses);
+                        const aTotalGames = a.stats.wins + a.stats.losses;
+                        const bTotalGames = b.stats.wins + b.stats.losses;
+                        const aWinPct = aTotalGames > 0 ? a.stats.wins / aTotalGames : 0;
+                        const bWinPct = bTotalGames > 0 ? b.stats.wins / bTotalGames : 0;
                         if (bWinPct !== aWinPct) return bWinPct - aWinPct;
-                        return b.stats.wins - a.stats.wins;
+                        // Tiebreaker: point differential
+                        const aDiff = a.stats.pointsFor - a.stats.pointsAgainst;
+                        const bDiff = b.stats.pointsFor - b.stats.pointsAgainst;
+                        if (bDiff !== aDiff) return bDiff - aDiff;
+                        return b.stats.pointsFor - a.stats.pointsFor;
                     })
                     .slice(0, 8);
 
-                const topTeams = standings.map(s => {
-                    const team = useStandingsStore.getState().teamStats.get(s.teamId);
-                    return team;
-                }).filter(Boolean) as any[];
+                // Resolve team IDs to full Team objects using the static teams array
+                const playoffTeams = standings
+                    .map(s => teams.find(t => t.id === s.teamId))
+                    .filter((t): t is Team => t !== undefined);
 
-                // Import teams to get full team objects
-                import('@/data/teams').then(({ teams }) => {
-                    const playoffTeams = topTeams.map(stat =>
-                        teams.find(t => t.id === stat.teamId)
-                    ).filter(Boolean) as Team[];
+                if (playoffTeams.length < 8) {
+                    console.warn('[LSHL] Could not resolve all 8 playoff teams');
+                    return;
+                }
 
-                    set({
-                        phase: 'quarterfinals',
-                        playoffTeams
-                    });
-
-                    get().advanceRound();
+                set({
+                    phase: 'quarterfinals',
+                    playoffTeams
                 });
+
+                get().advanceRound();
             },
 
             resetSeason: () => {
@@ -496,12 +585,24 @@ export const useSeasonStore = create<SeasonStore>()(
                     const str = localStorage.getItem(name);
                     if (!str) return null;
                     const { state } = JSON.parse(str);
+
+                    // === NON-DESTRUCTIVE MIGRATION ===
+                    let migratedState = { ...state };
+
+                    // v1 → v2: Add version field, preserve everything
+                    if (!migratedState.version || migratedState.version < 2) {
+                        migratedState.version = STORE_VERSION;
+                        // All existing data is preserved as-is
+                    }
+
+                    // Future migrations: if (migratedState.version < 3) { ... }
+
                     return {
                         state: {
-                            ...state,
-                            seasonStartDate: state.seasonStartDate ? new Date(state.seasonStartDate) : null,
-                            calendar: state.calendar?.map((d: string) => new Date(d)) || [],
-                            rounds: state.rounds?.map((r: any) => ({
+                            ...migratedState,
+                            seasonStartDate: migratedState.seasonStartDate ? new Date(migratedState.seasonStartDate) : null,
+                            calendar: migratedState.calendar?.map((d: string) => new Date(d)) || [],
+                            rounds: migratedState.rounds?.map((r: any) => ({
                                 ...r,
                                 date: new Date(r.date)
                             })) || []

@@ -133,14 +133,24 @@ export class ScheduleManager {
     }
 
     /**
-     * Generate matchups for a round (ensures all 20 teams play with variety)
+     * Generate matchups for a round using the Circle Method (round-robin).
+     * 
+     * ALGORITHM: Fix team[0] in place, rotate teams[1..n-1].
+     * Pair adjacent elements after rotation.
+     * 
+     * IMPORTANT: This algorithm MUST NOT be changed — it determines
+     * which teams play each other. Changing it would alter historical
+     * matchups that users already witnessed. The rotation naturally
+     * ensures no consecutive repeat matchups across 14 rounds.
+     * 
+     * With 20 teams and 14 rounds (of 19 possible), this guarantees:
+     * - No duplicate matchups across rounds
+     * - Every team plays exactly once per round (10 games/round)
      */
     generateRoundMatchups(roundNumber: number): Array<[Team, Team]> {
-        // Use circle method for round-robin scheduling
         const teamsCopy = [...teams];
         const numTeams = teamsCopy.length;
 
-        // For round-robin with even number of teams
         // Fix one team, rotate others
         const fixed = teamsCopy[0];
         const rotating = teamsCopy.slice(1);
@@ -151,7 +161,7 @@ export class ScheduleManager {
             rotating.unshift(rotating.pop()!);
         }
 
-        // Create matchups
+        // Create matchups: fixed vs first, then adjacent pairs
         const matchups: Array<[Team, Team]> = [];
         matchups.push([fixed, rotating[0]]);
 

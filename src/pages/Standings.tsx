@@ -13,6 +13,7 @@ interface TeamStanding {
   winPercentage: string;
   pointsFor: number;
   pointsAgainst: number;
+  pointDiff: number;
   streak: string;
 }
 
@@ -61,17 +62,20 @@ const Standings = () => {
       winPercentage,
       pointsFor: stats.pointsFor,
       pointsAgainst: stats.pointsAgainst,
+      pointDiff: stats.pointsFor - stats.pointsAgainst,
       streak
     };
   }).sort((a, b) => {
-    // Ordena por porcentagem de vitórias (decrescente)
+    // 1. Vitórias (desc)
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    // 2. Aproveitamento (desc)
     const aWinPct = parseFloat(a.winPercentage);
     const bWinPct = parseFloat(b.winPercentage);
-    if (bWinPct !== aWinPct) {
-      return bWinPct - aWinPct;
-    }
-    // Se empatar, ordena por vitórias
-    return b.wins - a.wins;
+    if (bWinPct !== aWinPct) return bWinPct - aWinPct;
+    // 3. Saldo de pontos (desc)
+    if (b.pointDiff !== a.pointDiff) return b.pointDiff - a.pointDiff;
+    // 4. Pontos marcados (desc)
+    return b.pointsFor - a.pointsFor;
   });
 
   return (
@@ -121,6 +125,7 @@ const Standings = () => {
                       <th className="text-center p-4 font-semibold text-foreground">%</th>
                       <th className="text-center p-4 font-semibold text-foreground">PF</th>
                       <th className="text-center p-4 font-semibold text-foreground">PC</th>
+                      <th className="text-center p-4 font-semibold text-foreground">DIFF</th>
                       <th className="text-center p-4 font-semibold text-foreground">Sequência</th>
                     </tr>
                   </thead>
@@ -174,6 +179,13 @@ const Standings = () => {
                         </td>
                         <td className="text-center p-4 text-muted-foreground">
                           {standing.pointsAgainst}
+                        </td>
+                        <td className="text-center p-4">
+                          <span className={`font-semibold ${
+                            standing.pointDiff > 0 ? 'text-green-600' : standing.pointDiff < 0 ? 'text-red-600' : 'text-muted-foreground'
+                          }`}>
+                            {standing.pointDiff > 0 ? '+' : ''}{standing.pointDiff}
+                          </span>
                         </td>
                         <td className="text-center p-4">
                           <span className={`font-semibold ${standing.streak.startsWith('W') ? 'text-green-600' : 'text-red-600'
@@ -233,6 +245,14 @@ const Standings = () => {
                         <span className="font-semibold">PC:</span> {standing.pointsAgainst}
                       </div>
                       <div>
+                        <span className="text-muted-foreground font-semibold">DIFF:</span>{' '}
+                        <span className={`font-semibold ${
+                          standing.pointDiff > 0 ? 'text-green-600' : standing.pointDiff < 0 ? 'text-red-600' : 'text-muted-foreground'
+                        }`}>
+                          {standing.pointDiff > 0 ? '+' : ''}{standing.pointDiff}
+                        </span>
+                      </div>
+                      <div>
                         <span className="text-muted-foreground font-semibold">Seq:</span>{' '}
                         <span className={`font-semibold ${standing.streak.startsWith('W') ? 'text-green-600' : 'text-red-600'
                           }`}>
@@ -249,7 +269,7 @@ const Standings = () => {
             <Card className="p-4 bg-muted/30">
               <div className="text-sm text-muted-foreground space-y-1">
                 <p><span className="font-semibold">V</span> = Vitórias | <span className="font-semibold">D</span> = Derrotas | <span className="font-semibold">%</span> = Porcentagem de Vitórias</p>
-                <p><span className="font-semibold">PF</span> = Pontos Feitos | <span className="font-semibold">PC</span> = Pontos Contra | <span className="font-semibold">Sequência</span> = W (vitórias) ou L (derrotas) consecutivas</p>
+                <p><span className="font-semibold">PF</span> = Pontos Feitos | <span className="font-semibold">PC</span> = Pontos Contra | <span className="font-semibold">DIFF</span> = Saldo de Pontos | <span className="font-semibold">Sequência</span> = W (vitórias) ou L (derrotas) consecutivas</p>
               </div>
             </Card>
           </div>

@@ -43,7 +43,13 @@ const Index = () => {
       }
     }
 
+    // initializeSeason is now safe for both new and existing users:
+    // - New users: generates all 14 rounds from scratch
+    // - Existing users: complements missing rounds + triggers standings migration
     if (rounds.length === 0) {
+      initializeSeason(desiredStart);
+    } else {
+      // For existing users: ensure standings are rebuilt from persisted data if needed
       initializeSeason(desiredStart);
     }
   }, [rounds.length, initializeSeason, seasonStartDate, nuclearReset]);

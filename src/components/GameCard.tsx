@@ -22,12 +22,12 @@ export const GameCard = ({ id, homeTeam, awayTeam, gameNumber, onGameFinish }: G
   const scheduledDate = currentRoundData ? new Date(currentRoundData.date) : new Date();
 
   const [gameState, setGameState] = useState(() => 
-    calculateGameState(homeTeam.id + awayTeam.id, scheduledDate, new Date())
+    calculateGameState(id, scheduledDate, new Date())
   );
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const newState = calculateGameState(homeTeam.id + awayTeam.id, scheduledDate, new Date());
+      const newState = calculateGameState(id, scheduledDate, new Date());
       setGameState(newState);
       
       if (newState.isFinished && !gameState.isFinished) {
