@@ -58,9 +58,6 @@ export const NoGamesView = () => {
                 <h2 className="text-4xl font-black text-foreground tracking-tight uppercase">
                     {phase === 'finals' ? 'O Dia da Decisão' : 'Não há jogos agora'}
                 </h2>
-                <p className="text-muted-foreground">
-                    Início da temporada em <span className="text-primary font-bold">{formattedDate}</span> às {formattedTime}
-                </p>
             </div>
 
             {/* Countdown */}
