@@ -1,6 +1,6 @@
-const { teams, buildSeasonSnapshot } = require("./_shared/season-data");
+import { teams, buildSeasonSnapshot } from "./_shared/season-data.js";
 
-module.exports = (req, res) => {
+export default function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Cache-Control", "no-store");
 
@@ -18,4 +18,4 @@ module.exports = (req, res) => {
   });
 
   res.status(200).json(payload);
-};
+}

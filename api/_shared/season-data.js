@@ -293,7 +293,4 @@ function buildSeasonSnapshot(now = new Date()) {
   return { standings, upcomingGames };
 }
 
-module.exports = {
-  teams,
-  buildSeasonSnapshot,
-};
+export { teams, buildSeasonSnapshot };
